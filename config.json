@@ -13,12 +13,6 @@
       "name": "Shahzaib Shahbaz Khan",
       "why": "leaked copy"
     },
-    {
-      "id": 6432472,
-      "uuid": "23b5db65-0171-4aed-8bc9-ba011698754f",
-      "name": "Moath",
-      "why": "author test"
-    }
   ],
   "notice": "You're banned from using this script.\n\nYou might see this if:\n- This copy isn't linked to the author\n- Your account isn't on the authorised list\n- The author has disabled this tool\n- The file was shared, which isn't permitted\n- It's being used by someone other than the author\n\nContact the author if you think this is a mistake.",
   "ver": "2.7.3"
