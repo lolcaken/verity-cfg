@@ -55,6 +55,25 @@ if (cfg.deny && Array.isArray(cfg.deny)) {
   });
 }
 if (cfg.ver !== undefined && !/^\d+\.\d+\.\d+$/.test(String(cfg.ver).trim())) problems.push('ver is not MAJOR.MINOR.PATCH');
+
+/* config.ver and the build's own VT_VERSION are one fact written in two
+   places, and nothing else ties them together. When they disagree the damage
+   is silent and lands on a banned user: config.ver drives the update notice,
+   so a build published at 2.7.5 against a config still saying 2.7.4 is never
+   told a newer build exists, and the copy that shipped the gate bug keeps
+   farming because no notice ever fires. Read the number straight out of the
+   source and refuse to publish a mismatched pair. */
+try {
+  const src = fs.readFileSync(path.join(DIR, '..', 'grain-verity.js'), 'utf8');
+  const m = src.match(/const\s+VT_VERSION\s*=\s*'([^']+)'/);
+  if (!m) problems.push('could not read VT_VERSION out of grain-verity.js');
+  else if (String(cfg.ver).trim() !== m[1]) {
+    problems.push('ver=' + cfg.ver + ' but the build is ' + m[1] + ' - set both together, and restamp t');
+  }
+} catch (e) {
+  problems.push('could not read grain-verity.js: ' + e.message);
+}
+
 if (problems.length) {
   console.error('FAIL  config.json: ' + problems.join('; '));
   process.exit(1);
