@@ -1,5 +1,5 @@
 {
-  "gate": "no",
+  "gate": "yes",
   "deny": [
     {
       "id": 6432446,
