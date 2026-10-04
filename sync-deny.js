@@ -18,6 +18,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 const DIR = __dirname;
 const CHECK = process.argv.indexOf('--check') !== -1;
@@ -81,13 +82,32 @@ if (problems.length) {
 
 const touched = [];
 
-/* the stamp lives in config.json so the CDN freshness check has something to
-   read. It is written only when a mirror actually changed, so re-running is a
-   no-op instead of a new SHA and a new commit every time. */
+/* the two legacy files, rebuilt from the unified config every run */
 const denyOut = JSON.stringify({ deny: cfg.deny, notice: cfg.notice || '' }, null, 2) + '\n';
 const gateWant = cfg.gate.trim().toLowerCase() === 'yes' ? 'yes\n' : 'no\n';
+
+/* The stamp lives in config.json so the CDN freshness check has something to
+   read. It is written when a mirror changed OR when config.json's own content
+   changed since it was last committed.
+
+   The second condition is not redundant. `t` is a claim about when this content
+   was published, and the CDN guard reads it: a file edited by hand on GitHub
+   kept its old stamp, so a config carrying 12:03 content went out asserting it
+   was written at 11:52. That is a stamp lying about freshness, which is the
+   one thing a freshness stamp must never do - and it is invisible unless
+   something compares the file against the commit it came from. */
+const lastCommitted = (() => {
+  try { return execSync('git show HEAD:config.json', { cwd: DIR, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); }
+  catch (e) { return null; }
+})();
+const cfgSelfDrift = (() => {
+  if (lastCommitted === null) return true;          /* no git, or no file yet: stamp */
+  const strip = s => { try { const o = JSON.parse(s.replace(/^\uFEFF/, '')); delete o.t; return JSON.stringify(o); } catch (e) { return String(s); } };
+  return strip(lastCommitted) !== strip(fs.readFileSync(CFG_PATH, 'utf8'));
+})();
 const needStamp = (fs.existsSync(DENY_PATH) ? fs.readFileSync(DENY_PATH, 'utf8') : '') !== denyOut ||
   (fs.existsSync(GATE_PATH) ? fs.readFileSync(GATE_PATH, 'utf8') : '') !== gateWant ||
+  cfgSelfDrift ||
   typeof cfg.t !== 'string' || !isFinite(Date.parse(cfg.t));
 const stamped = needStamp ? Object.assign({}, cfg, { t: new Date().toISOString() }) : cfg;
 const cfgOut = JSON.stringify(stamped, null, 2) + '\n';
@@ -96,6 +116,25 @@ const cfgChanged = fs.readFileSync(CFG_PATH, 'utf8') !== cfgOut;
 /* denylist mirror: deny[] plus the notice, which is all the pre-2.6.2 builds
    ever read from this file */
 if (writeIfChanged(DENY_PATH, denyOut)) touched.push('verity-denylist.json');
+
+/* Two files hold the gate and nothing forced them to agree. The failure is
+   silent and lands on you: flip gate in config.json on GitHub, leave a stale
+   verity-gate.txt behind, and every build that reads the mirror stays switched
+   off while the config says on. That reads exactly like a broken kill switch -
+   which is what it looked like when it happened. Compare BEFORE writing, or the
+   write has already papered over the drift and the check can never fire. */
+const gateMirrorWant = cfg.gate.trim().toLowerCase() === 'yes' ? 'yes' : 'no';
+const gateMirrorNow = (fs.existsSync(GATE_PATH) ? fs.readFileSync(GATE_PATH, 'utf8') : '').trim().toLowerCase();
+if (gateMirrorNow !== gateMirrorWant) {
+  if (CHECK) {
+    console.error('FAIL  gate mirror is stale: verity-gate.txt="' + gateMirrorNow +
+      '" but config.json gate="' + gateMirrorWant + '"');
+    console.error('      fix:  node sync-deny.js');
+    process.exit(1);
+  }
+  console.error('warn  gate mirror was stale (verity-gate.txt="' + gateMirrorNow +
+    '" vs gate="' + gateMirrorWant + '") - rewriting it below');
+}
 
 /* gate mirror: old builds compare this file's whole contents to "yes" */
 if (writeIfChanged(GATE_PATH, gateWant)) touched.push('verity-gate.txt');
