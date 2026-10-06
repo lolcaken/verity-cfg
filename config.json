@@ -2,12 +2,6 @@
   "gate": "yes",
   "deny": [
     {
-      "id": 6432446,
-      "uuid": "70a62d4c-4d74-4165-8264-308ba76afcf6",
-      "name": "Mariam N",
-      "why": "leaked copy"
-    },
-    {
       "id": 6842029,
       "uuid": "c4a08473-f36d-40e1-bcc9-d14bade62e2a",
       "name": "Shahzaib",
@@ -16,5 +10,5 @@
   ],
   "notice": "You're banned from using this script.\n\nYou might see this if:\n- This copy isn't linked to the author\n- Your account isn't on the authorised list\n- The author has disabled this tool\n- The file was shared, which isn't permitted\n- It's being used by someone other than the author\n\nContact the author if you think this is a mistake.",
   "ver": "2.7.9",
-  "t": "2026-10-05T16:58:19.065Z"
+  "t": "2026-10-06T09:31:21.639Z"
 }
